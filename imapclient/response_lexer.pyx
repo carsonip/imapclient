@@ -29,45 +29,21 @@ OPEN_SQUARE = ord('[')
 CLOSE_SQUARE = ord(']')
 DOUBLE_QUOTE = ord('"')
 
-BACKSLASH_CHR = b'\\'
-OPEN_SQUARE_CHR = b'['
-CLOSE_SQUARE_CHR = b']'
-DOUBLE_QUOTE_CHR = b'"'
+cdef bytes BACKSLASH_CHR = b'\\'
+cdef bytes OPEN_SQUARE_CHR = b'['
+cdef bytes CLOSE_SQUARE_CHR = b']'
+cdef bytes DOUBLE_QUOTE_CHR = b'"'
 
 cdef frozenset whitespace = frozenset(chr(b) for b in WHITESPACE)
 cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 
 
-class TokenSource(object):
-    """
-    A simple iterator for the Lexer class that also provides access to
-    the current IMAP literal.
-    """
-
-    def __init__(self, text):
-        self.lex = Lexer(text)
-        self.src = iter(self.lex)
-
-    @property
-    def current_literal(self):
-        return self.lex.current_source.literal
-
-    def __iter__(self):
-        return self.src
-
-
-class Lexer(object):
-    """
-    A lexical analyzer class for IMAP
-    """
-
-    def __init__(self, text):
-        self.sources = (LiteralHandlingIter(self, chunk) for chunk in text)
-        self.current_source = None
-
-    def read_token_stream(self, src_text):
+def read_token_stream(bytes src_text):
         cdef long src_len = len(src_text)
         cdef long ptr = 0
+        cdef long ind
+        cdef bytearray token
+        cdef bytes nextchar
 
         while ptr < src_len:
 
@@ -130,10 +106,38 @@ class Lexer(object):
                 if token:
                     yield token
 
+
+class TokenSource(object):
+    """
+    A simple iterator for the Lexer class that also provides access to
+    the current IMAP literal.
+    """
+
+    def __init__(self, text):
+        self.lex = Lexer(text)
+        self.src = iter(self.lex)
+
+    @property
+    def current_literal(self):
+        return self.lex.current_source.literal
+
+    def __iter__(self):
+        return self.src
+
+
+class Lexer(object):
+    """
+    A lexical analyzer class for IMAP
+    """
+
+    def __init__(self, text):
+        self.sources = (LiteralHandlingIter(self, chunk) for chunk in text)
+        self.current_source = None
+
     def __iter__(self):
         for source in self.sources:
             self.current_source = source
-            for tok in self.read_token_stream(source.src_text):
+            for tok in read_token_stream(source.src_text):
                 yield bytes(tok)
 
 
