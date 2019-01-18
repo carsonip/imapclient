@@ -1,3 +1,4 @@
+# cython: language_level=2
 # Copyright (c) 2014, Menno Smits
 # Released subject to the New BSD License
 # Please see http://en.wikipedia.org/wiki/BSD_licenses
@@ -67,7 +68,7 @@ def parse_message_list(data):
     if not m:
         raise ValueError("unexpected message list format")
 
-    ids = SearchIds(int(n) for n in m.group(1).split())
+    ids = SearchIds(int(n, 10) for n in m.group(1).split())
 
     # Parse any non-numeric part on the end using parse_response (this
     # is likely to be the MODSEQ section).
@@ -201,11 +202,17 @@ def _convert_ENVELOPE(envelope_response, normalise_times=True):
 
 def atom(src, token):
     if token == b'(':
-        return parse_tuple(src)
+        out = []
+        for token in src:
+            if token == b')':
+                return tuple(out)
+            out.append(atom(src, token))
+        # no terminator
+        raise ProtocolError('Tuple incomplete before "(%s"' % _fmt_tuple(out))
     elif token == b'NIL':
         return None
     elif token[:1] == b'{':
-        literal_len = int(token[1:-1])
+        literal_len = int(token[1:-1], 10)
         literal_text = src.current_literal
         if literal_text is None:
             raise ProtocolError('No literal corresponds to %r' % token)
@@ -213,22 +220,12 @@ def atom(src, token):
             raise ProtocolError('Expecting literal of size %d, got %d' % (
                 literal_len, len(literal_text)))
         return literal_text
-    elif len(token) >= 2 and (token[:1] == token[-1:] == b'"'):
+    elif len(token) >= 2 and (token[0] == token[-1] == b'"'):
         return token[1:-1]
     elif token.isdigit():
-        return int(token)
+        return int(token, 10)
     else:
         return token
-
-
-def parse_tuple(src):
-    out = []
-    for token in src:
-        if token == b")":
-            return tuple(out)
-        out.append(atom(src, token))
-    # no terminator
-    raise ProtocolError('Tuple incomplete before "(%s"' % _fmt_tuple(out))
 
 
 def _fmt_tuple(t):

@@ -1,3 +1,4 @@
+# cython: language_level=2
 # Copyright (c) 2014, Menno Smits
 # Released subject to the New BSD License
 # Please see http://en.wikipedia.org/wiki/BSD_licenses
@@ -28,6 +29,14 @@ OPEN_SQUARE = ord('[')
 CLOSE_SQUARE = ord(']')
 DOUBLE_QUOTE = ord('"')
 
+BACKSLASH_CHR = b'\\'
+OPEN_SQUARE_CHR = b'['
+CLOSE_SQUARE_CHR = b']'
+DOUBLE_QUOTE_CHR = b'"'
+
+cdef frozenset whitespace = frozenset(chr(b) for b in WHITESPACE)
+cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
+
 
 class TokenSource(object):
     """
@@ -56,52 +65,60 @@ class Lexer(object):
         self.sources = (LiteralHandlingIter(self, chunk) for chunk in text)
         self.current_source = None
 
-    def read_until(self, stream_i, end_char, escape=True):
-        token = bytearray()
-        try:
-            for nextchar in stream_i:
-                if escape and nextchar == BACKSLASH:
-                    escaper = nextchar
-                    nextchar = six.next(stream_i)
-                    if nextchar != escaper and nextchar != end_char:
-                        token.append(escaper)  # Don't touch invalid escaping
-                elif nextchar == end_char:
-                    break
-                token.append(nextchar)
-            else:
-                raise ValueError("No closing '%s'" % chr(end_char))
-        except StopIteration:
-            raise ValueError("No closing '%s'" % chr(end_char))
-        token.append(end_char)
-        return token
+    def read_token_stream(self, src_text):
+        cdef long src_len = len(src_text)
+        cdef long ptr = 0
 
-    def read_token_stream(self, stream_i):
-        whitespace = WHITESPACE
-        wordchars = NON_SPECIALS
-        read_until = self.read_until
+        while ptr < src_len:
 
-        while True:
-            # Whitespace
-            for nextchar in stream_i:
-                if nextchar not in whitespace:
-                    stream_i.push(nextchar)
-                    break    # done skipping over the whitespace
+            while ptr < src_len and src_text[ptr] in whitespace:
+                ptr += 1
 
             # Non-whitespace
             token = bytearray()
-            for nextchar in stream_i:
+            while ptr < src_len:
+                nextchar = src_text[ptr]
+                ptr += 1
+
                 if nextchar in wordchars:
                     token.append(nextchar)
-                elif nextchar == OPEN_SQUARE:
+                elif nextchar == OPEN_SQUARE_CHR:
                     token.append(nextchar)
-                    token.extend(read_until(stream_i, CLOSE_SQUARE, escape=False))
+
+                    ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
+                    if ind == -1:
+                        raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
+                    token.extend(src_text[ptr:ind + 1])
+                    ptr = ind + 1
                 else:
                     if nextchar in whitespace:
                         yield token
-                    elif nextchar == DOUBLE_QUOTE:
+                    elif nextchar == DOUBLE_QUOTE_CHR:
                         assert_imap_protocol(not token)
                         token.append(nextchar)
-                        token.extend(read_until(stream_i, nextchar))
+
+                        while ptr < src_len:
+                            nextchar = src_text[ptr]
+                            ptr += 1
+
+                            if nextchar == BACKSLASH_CHR:
+                                if ptr >= src_len:
+                                    raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
+                                # Peek
+                                if src_text[ptr] == BACKSLASH_CHR \
+                                        or src_text[ptr] == DOUBLE_QUOTE_CHR:
+                                    token.append(src_text[ptr])
+                                    ptr += 1
+                                    continue
+
+                            # In all other cases, append nextchar
+                            token.append(nextchar)
+                            if nextchar == DOUBLE_QUOTE_CHR:
+                                break
+                        else:
+                            # No closing quote
+                            raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
+
                         yield token
                     else:
                         # Other punctuation, eg. "(". This ends the current token.
@@ -112,12 +129,11 @@ class Lexer(object):
             else:
                 if token:
                     yield token
-                break
 
     def __iter__(self):
         for source in self.sources:
             self.current_source = source
-            for tok in self.read_token_stream(iter(source)):
+            for tok in self.read_token_stream(source.src_text):
                 yield bytes(tok)
 
 
@@ -132,7 +148,7 @@ class Lexer(object):
 # So: we have a special object for each of these records.  When a
 # string literal is processed, we peek into this object to grab the
 # literal.
-class LiteralHandlingIter:
+class LiteralHandlingIter(object):
 
     def __init__(self, lexer, resp_record):
         self.lexer = lexer
@@ -140,35 +156,9 @@ class LiteralHandlingIter:
             # A 'record' with a string which includes a literal marker, and
             # the literal itself.
             self.src_text = resp_record[0]
-            assert_imap_protocol(self.src_text.endswith(b"}"), self.src_text)
+            assert_imap_protocol(self.src_text.endswith(b'}'), self.src_text)
             self.literal = resp_record[1]
         else:
             # just a line with no literals.
             self.src_text = resp_record
             self.literal = None
-
-    def __iter__(self):
-        return PushableIterator(six.iterbytes(self.src_text))
-
-
-class PushableIterator(object):
-
-    NO_MORE = object()
-
-    def __init__(self, it):
-        self.it = iter(it)
-        self.pushed = []
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self.pushed:
-            return self.pushed.pop()
-        return six.next(self.it)
-
-    # For Python 2 compatibility
-    next = __next__
-
-    def push(self, item):
-        self.pushed.append(item)
