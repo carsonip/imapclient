@@ -201,6 +201,7 @@ def _convert_ENVELOPE(envelope_response, normalise_times=True):
 
 
 def atom(src, bytes token):
+    cdef list out
     if token == b'(':
         out = []
         for token in src:
