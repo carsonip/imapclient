@@ -40,7 +40,8 @@ IMAPClient includes comprehensive units tests and automated
 functional tests that can be run against a live IMAP server.
 """
 
-main_deps = ['six', 'Cython']
+setup_deps = ['Cython']
+main_deps = ['six']
 test_deps = ['mock>=1.3.0; python_version < "3.4"']
 doc_deps = ['sphinx']
 
@@ -58,6 +59,7 @@ setup(
     download_url='http://menno.io/projects/IMAPClient/IMAPClient-%s.zip' % info['version'],
     packages=['imapclient'],
     package_data=dict(imapclient=['examples/*.py']),
+    setup_requires=setup_deps,
     install_requires=main_deps,
     tests_require=test_deps,
     extras_require={
