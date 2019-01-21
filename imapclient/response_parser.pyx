@@ -87,7 +87,7 @@ def gen_parsed_response(text):
         return
     src = TokenSource(text)
 
-    cdef bytes token
+    cdef bytes token = None
     try:
         for token in src:
             yield atom(src, token)
