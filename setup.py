@@ -7,8 +7,7 @@
 import sys
 from os import path
 
-from setuptools import setup
-from Cython.Build import cythonize
+from setuptools import setup, Extension
 
 MAJ_MIN_MIC = sys.version_info[:3]
 IS_PY3 = MAJ_MIN_MIC >= (3, 0, 0)
@@ -40,8 +39,8 @@ IMAPClient includes comprehensive units tests and automated
 functional tests that can be run against a live IMAP server.
 """
 
-setup_deps = ['Cython']
-main_deps = ['six']
+setup_deps = ['setuptools>=18.0', 'Cython']
+main_deps = ['six', 'Cython']
 test_deps = ['mock>=1.3.0; python_version < "3.4"']
 doc_deps = ['sphinx']
 
@@ -80,5 +79,14 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: System :: Networking'
     ],
-    ext_modules=cythonize(['imapclient/*.pyx']),
+    ext_modules=[
+        Extension(
+            'imapclient.response_lexer',
+            sources=['imapclient/response_lexer.pyx'],
+        ),
+        Extension(
+            'imapclient.response_parser',
+            sources=['imapclient/response_parser.pyx'],
+        )
+    ],
 )
