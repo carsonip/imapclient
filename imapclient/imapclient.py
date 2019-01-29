@@ -780,35 +780,28 @@ class IMAPClient(object):
              (1, b'EXISTS'),
              (1, b'FETCH', (b'FLAGS', (b'\\NotJunk',)))]
         """
-        sock = self._sock
-
-        # make the socket non-blocking so the timeout can be
-        # implemented for this call
-        sock.settimeout(None)
-        sock.setblocking(0)
+        resps = []
         try:
-            resps = []
-            rs, _, _ = select.select([sock], [], [], timeout)
-            if rs:
-                while True:
-                    try:
-                        line = self._imap._get_line()
-                    except (socket.timeout, socket.error):
+            while True:
+                try:
+                    self._sock.settimeout(timeout)
+                    line = self._imap._get_line()
+                    timeout = 0.0
+                except (socket.timeout, socket.error):
+                    break
+                except IMAPClient.AbortError:
+                    # An imaplib.IMAP4.abort with "EOF" is raised
+                    # under Python 3
+                    err = sys.exc_info()[1]
+                    if 'EOF' in err.args[0]:
                         break
-                    except IMAPClient.AbortError:
-                        # An imaplib.IMAP4.abort with "EOF" is raised
-                        # under Python 3
-                        err = sys.exc_info()[1]
-                        if 'EOF' in err.args[0]:
-                            break
-                        else:
-                            raise
                     else:
-                        resps.append(_parse_untagged_response(line))
-            return resps
+                        raise
+                else:
+                    resps.append(_parse_untagged_response(line))
         finally:
-            sock.setblocking(1)
             self._set_read_timeout()
+        return resps
 
     @require_capability('IDLE')
     def idle_done(self):
