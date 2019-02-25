@@ -48,25 +48,25 @@ def read_token_stream(src_text):
             ptr += 1
 
         # Non-whitespace
-        token = bytearray()
+        fr = to = ptr
         while ptr < src_len:
             nextchar = src_text[ptr]
             ptr += 1
 
             if nextchar in wordchars:
-                token.append(nextchar)
+                to += 1
             elif nextchar == OPEN_SQUARE_CHR:
-                token.append(nextchar)
-
                 ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
                 if ind == -1:
                     raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
-                token.extend(src_text[ptr:ind + 1])
+                to = ind + 1
                 ptr = ind + 1
             else:
                 if nextchar in whitespace:
-                    yield token
+                    yield src_text[fr:to]
+                    fr = to
                 elif nextchar == DOUBLE_QUOTE_CHR:
+                    token = bytearray(src_text[fr:to])
                     assert_imap_protocol(not token)
                     token.append(nextchar)
 
@@ -92,16 +92,18 @@ def read_token_stream(src_text):
                         # No closing quote
                         raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
 
-                    yield token
+                    yield bytes(token)
                 else:
                     # Other punctuation, eg. "(". This ends the current token.
-                    if token:
-                        yield token
-                    yield bytearray([nextchar])
+                    if to > fr:
+                        yield src_text[fr:to]
+                        fr = to
+                    yield bytes(nextchar)
                 break
         else:
-            if token:
-                yield token
+            if to > fr:
+                yield src_text[fr:to]
+                fr = to
 
 
 class TokenSource(object):
@@ -135,7 +137,7 @@ class Lexer(object):
         for source in self.sources:
             self.current_source = source
             for tok in read_token_stream(source.src_text):
-                yield bytes(tok)
+                yield tok
 
 
 # imaplib has poor handling of 'literals' - it both fails to remove the
