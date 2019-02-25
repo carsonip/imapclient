@@ -87,7 +87,7 @@ def gen_parsed_response(text):
         return
     src = TokenSource(text)
 
-    cdef bytes token = None
+    token = None
     try:
         for token in src:
             yield atom(src, token)
@@ -200,8 +200,7 @@ def _convert_ENVELOPE(envelope_response, normalise_times=True):
     )
 
 
-def atom(src, bytes token):
-    cdef list out
+def atom(src, token):
     if token == b'(':
         out = []
         for token in src:

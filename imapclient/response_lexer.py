@@ -29,82 +29,79 @@ OPEN_SQUARE = ord('[')
 CLOSE_SQUARE = ord(']')
 DOUBLE_QUOTE = ord('"')
 
-cdef bytes BACKSLASH_CHR = b'\\'
-cdef bytes OPEN_SQUARE_CHR = b'['
-cdef bytes CLOSE_SQUARE_CHR = b']'
-cdef bytes DOUBLE_QUOTE_CHR = b'"'
+BACKSLASH_CHR = b'\\'
+OPEN_SQUARE_CHR = b'['
+CLOSE_SQUARE_CHR = b']'
+DOUBLE_QUOTE_CHR = b'"'
 
-cdef frozenset whitespace = frozenset(chr(b) for b in WHITESPACE)
-cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
+whitespace = frozenset(chr(b) for b in WHITESPACE)
+wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 
 
-def read_token_stream(bytes src_text):
-        cdef long src_len = len(src_text)
-        cdef long ptr = 0
-        cdef long ind
-        cdef bytearray token
-        cdef bytes nextchar
+def read_token_stream(src_text):
+    src_len = len(src_text)
+    ptr = 0
 
+    while ptr < src_len:
+
+        while ptr < src_len and src_text[ptr] in whitespace:
+            ptr += 1
+
+        # Non-whitespace
+        token = bytearray()
         while ptr < src_len:
+            nextchar = src_text[ptr]
+            ptr += 1
 
-            while ptr < src_len and src_text[ptr] in whitespace:
-                ptr += 1
+            if nextchar in wordchars:
+                token.append(nextchar)
+            elif nextchar == OPEN_SQUARE_CHR:
+                token.append(nextchar)
 
-            # Non-whitespace
-            token = bytearray()
-            while ptr < src_len:
-                nextchar = src_text[ptr]
-                ptr += 1
-
-                if nextchar in wordchars:
-                    token.append(nextchar)
-                elif nextchar == OPEN_SQUARE_CHR:
-                    token.append(nextchar)
-
-                    ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
-                    if ind == -1:
-                        raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
-                    token.extend(src_text[ptr:ind + 1])
-                    ptr = ind + 1
-                else:
-                    if nextchar in whitespace:
-                        yield token
-                    elif nextchar == DOUBLE_QUOTE_CHR:
-                        assert_imap_protocol(not token)
-                        token.append(nextchar)
-
-                        while ptr < src_len:
-                            nextchar = src_text[ptr]
-                            ptr += 1
-
-                            if nextchar == BACKSLASH_CHR:
-                                if ptr >= src_len:
-                                    raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
-                                # Peek
-                                if src_text[ptr] == BACKSLASH_CHR \
-                                        or src_text[ptr] == DOUBLE_QUOTE_CHR:
-                                    token.append(src_text[ptr])
-                                    ptr += 1
-                                    continue
-
-                            # In all other cases, append nextchar
-                            token.append(nextchar)
-                            if nextchar == DOUBLE_QUOTE_CHR:
-                                break
-                        else:
-                            # No closing quote
-                            raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
-
-                        yield token
-                    else:
-                        # Other punctuation, eg. "(". This ends the current token.
-                        if token:
-                            yield token
-                        yield bytearray([nextchar])
-                    break
+                ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
+                if ind == -1:
+                    raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
+                token.extend(src_text[ptr:ind + 1])
+                ptr = ind + 1
             else:
-                if token:
+                if nextchar in whitespace:
                     yield token
+                elif nextchar == DOUBLE_QUOTE_CHR:
+                    assert_imap_protocol(not token)
+                    token.append(nextchar)
+
+                    while ptr < src_len:
+                        nextchar = src_text[ptr]
+                        ptr += 1
+
+                        if nextchar == BACKSLASH_CHR:
+                            if ptr >= src_len:
+                                raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
+                            # Peek
+                            if src_text[ptr] == BACKSLASH_CHR \
+                                    or src_text[ptr] == DOUBLE_QUOTE_CHR:
+                                token.append(src_text[ptr])
+                                ptr += 1
+                                continue
+
+                        # In all other cases, append nextchar
+                        token.append(nextchar)
+                        if nextchar == DOUBLE_QUOTE_CHR:
+                            break
+                    else:
+                        # No closing quote
+                        raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
+
+                    yield token
+                else:
+                    # Other punctuation, eg. "(". This ends the current token.
+                    if token:
+                        yield token
+                    yield bytearray([nextchar])
+                break
+        else:
+            if token:
+                yield token
 
 
 class TokenSource(object):
