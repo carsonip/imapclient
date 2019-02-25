@@ -29,18 +29,21 @@ OPEN_SQUARE = ord('[')
 CLOSE_SQUARE = ord(']')
 DOUBLE_QUOTE = ord('"')
 
-BACKSLASH_CHR = b'\\'
-OPEN_SQUARE_CHR = b'['
-CLOSE_SQUARE_CHR = b']'
-DOUBLE_QUOTE_CHR = b'"'
+cdef bytes BACKSLASH_CHR = b'\\'
+cdef bytes OPEN_SQUARE_CHR = b'['
+cdef bytes CLOSE_SQUARE_CHR = b']'
+cdef bytes DOUBLE_QUOTE_CHR = b'"'
 
-whitespace = frozenset(chr(b) for b in WHITESPACE)
-wordchars = frozenset(chr(b) for b in NON_SPECIALS)
+cdef frozenset whitespace = frozenset(chr(b) for b in WHITESPACE)
+cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 
 
-def read_token_stream(src_text):
-    src_len = len(src_text)
-    ptr = 0
+def read_token_stream(bytes src_text):
+    cdef long src_len = len(src_text)
+    cdef long ptr = 0
+    cdef long ind
+    cdef bytearray token
+    cdef bytes nextchar
 
     while ptr < src_len:
 

@@ -79,4 +79,14 @@ setup(
         'Topic :: Software Development :: Libraries :: Python Modules',
         'Topic :: System :: Networking'
     ],
+    ext_modules=[
+        Extension(
+            'imapclient.response_lexer',
+            sources=['imapclient/response_lexer.pyx'],
+        ),
+        Extension(
+            'imapclient.response_parser',
+            sources=['imapclient/response_parser.pyx'],
+        )
+    ],
 )
