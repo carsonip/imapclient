@@ -24,10 +24,10 @@ SPECIALS = frozenset(c for c in six.iterbytes(b' ()%"['))
 NON_SPECIALS = ALL_CHARS - SPECIALS - CTRL_CHARS
 WHITESPACE = frozenset(c for c in six.iterbytes(b' \t\r\n'))
 
-BACKSLASH = ord('\\')
-OPEN_SQUARE = ord('[')
-CLOSE_SQUARE = ord(']')
-DOUBLE_QUOTE = ord('"')
+cdef char BACKSLASH = ord('\\')
+cdef char OPEN_SQUARE = ord('[')
+cdef char CLOSE_SQUARE = ord(']')
+cdef char DOUBLE_QUOTE = ord('"')
 
 cdef bytes BACKSLASH_CHR = b'\\'
 cdef bytes OPEN_SQUARE_CHR = b'['
@@ -37,62 +37,74 @@ cdef bytes DOUBLE_QUOTE_CHR = b'"'
 cdef frozenset whitespace = frozenset(chr(b) for b in WHITESPACE)
 cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 
+cdef list _WS = [1 if i in WHITESPACE else 0 for i in range(256)]
+cdef list _WC = [1 if i in NON_SPECIALS else 0 for i in range(256)]
+cdef bint WS[256]
+cdef bint WC[256]
+WS[:] = _WS
+WC[:] = _WC
 
 def read_token_stream(bytes src_text):
+    # cdef char* src_text = src_text_
     cdef long src_len = len(src_text)
     cdef long ptr = 0
     cdef long ind, fr, to
     cdef bytearray token
     cdef bytes nextchar, c
+    cdef char o, oo
+
+    # raise Exception(str(_WS))
 
     while ptr < src_len:
 
-        while ptr < src_len and src_text[ptr] in whitespace:
+        while ptr < src_len and WS[ord(src_text[ptr])]:
             ptr += 1
 
         # Non-whitespace
         fr = to = ptr
         while ptr < src_len:
             nextchar = src_text[ptr]
+            o = ord(nextchar)
             ptr += 1
 
-            if nextchar in wordchars:
+            if WC[o]:
                 to += 1
-            elif nextchar == OPEN_SQUARE_CHR:
+            elif o == OPEN_SQUARE:
                 ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
                 if ind == -1:
                     raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
                 to = ind + 1
                 ptr = ind + 1
             else:
-                if nextchar in whitespace:
+                if WS[o]:
                     yield src_text[fr:to]
                     fr = to
-                elif nextchar == DOUBLE_QUOTE_CHR:
+                elif o == DOUBLE_QUOTE:
                     if to > fr:
                         raise ValueError('')
                     token = bytearray()
                     # assert_imap_protocol(not token)
-                    token.append(nextchar)
+                    token.append(o)
 
                     while ptr < src_len:
                         nextchar = src_text[ptr]
+                        o = ord(nextchar)
                         ptr += 1
 
-                        if nextchar == BACKSLASH_CHR:
+                        if o == BACKSLASH:
                             if ptr >= src_len:
                                 raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
                             # Peek
-                            c = src_text[ptr]
-                            if c == BACKSLASH_CHR \
-                                    or c == DOUBLE_QUOTE_CHR:
-                                token.append(c)
+                            oo = ord(src_text[ptr])
+                            if oo == BACKSLASH \
+                                    or oo == DOUBLE_QUOTE:
+                                token.append(oo)
                                 ptr += 1
                                 continue
 
                         # In all other cases, append nextchar
-                        token.append(nextchar)
-                        if nextchar == DOUBLE_QUOTE_CHR:
+                        token.append(o)
+                        if o == DOUBLE_QUOTE:
                             break
                     else:
                         # No closing quote
@@ -104,7 +116,7 @@ def read_token_stream(bytes src_text):
                     if to > fr:
                         yield src_text[fr:to]
                         fr = to
-                    yield bytes(nextchar)
+                    yield nextchar
                 break
         else:
             if to > fr:
