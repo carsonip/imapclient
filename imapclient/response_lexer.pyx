@@ -46,6 +46,7 @@ WC[:] = _WC
 
 def read_token_stream(bytes src_text):
     # cdef char* src_text = src_text_
+    cdef char* v = src_text
     cdef long src_len = len(src_text)
     cdef long ptr = 0
     cdef long ind, fr, to
@@ -53,18 +54,17 @@ def read_token_stream(bytes src_text):
     cdef bytes nextchar, c
     cdef char o, oo
 
-    # raise Exception(str(_WS))
-
     while ptr < src_len:
 
-        while ptr < src_len and WS[ord(src_text[ptr])]:
+        while ptr < src_len and WS[v[ptr]]:
             ptr += 1
 
         # Non-whitespace
         fr = to = ptr
         while ptr < src_len:
-            nextchar = src_text[ptr]
-            o = ord(nextchar)
+            # nextchar = src_text[ptr]
+            # o = ord(nextchar)
+            o = v[ptr]
             ptr += 1
 
             if WC[o]:
@@ -87,15 +87,17 @@ def read_token_stream(bytes src_text):
                     token.append(o)
 
                     while ptr < src_len:
-                        nextchar = src_text[ptr]
-                        o = ord(nextchar)
+                        # nextchar = src_text[ptr]
+                        # o = ord(nextchar)
+                        o = v[ptr]
                         ptr += 1
 
                         if o == BACKSLASH:
                             if ptr >= src_len:
                                 raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
                             # Peek
-                            oo = ord(src_text[ptr])
+                            # oo = ord(src_text[ptr])
+                            oo = v[ptr]
                             if oo == BACKSLASH \
                                     or oo == DOUBLE_QUOTE:
                                 token.append(oo)
@@ -116,7 +118,7 @@ def read_token_stream(bytes src_text):
                     if to > fr:
                         yield src_text[fr:to]
                         fr = to
-                    yield nextchar
+                    yield chr(o)
                 break
         else:
             if to > fr:
