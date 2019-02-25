@@ -41,9 +41,9 @@ cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 def read_token_stream(bytes src_text):
     cdef long src_len = len(src_text)
     cdef long ptr = 0
-    cdef long ind
+    cdef long ind, fr, to
     cdef bytearray token
-    cdef bytes nextchar
+    cdef bytes nextchar, c
 
     while ptr < src_len:
 
@@ -69,8 +69,10 @@ def read_token_stream(bytes src_text):
                     yield src_text[fr:to]
                     fr = to
                 elif nextchar == DOUBLE_QUOTE_CHR:
-                    token = bytearray(src_text[fr:to])
-                    assert_imap_protocol(not token)
+                    if to > fr:
+                        raise ValueError('')
+                    token = bytearray()
+                    # assert_imap_protocol(not token)
                     token.append(nextchar)
 
                     while ptr < src_len:
@@ -81,9 +83,10 @@ def read_token_stream(bytes src_text):
                             if ptr >= src_len:
                                 raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
                             # Peek
-                            if src_text[ptr] == BACKSLASH_CHR \
-                                    or src_text[ptr] == DOUBLE_QUOTE_CHR:
-                                token.append(src_text[ptr])
+                            c = src_text[ptr]
+                            if c == BACKSLASH_CHR \
+                                    or c == DOUBLE_QUOTE_CHR:
+                                token.append(c)
                                 ptr += 1
                                 continue
 
