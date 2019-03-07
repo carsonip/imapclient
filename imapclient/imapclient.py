@@ -217,6 +217,8 @@ class IMAPClient(object):
     AbortError = exceptions.IMAPClientAbortError
     ReadOnlyError = exceptions.IMAPClientReadOnlyError
 
+    DEBUG = 5
+
     def __init__(self, host, port=None, use_uid=True, ssl=True, stream=False,
                  ssl_context=None, timeout=None):
         if stream:
@@ -260,7 +262,7 @@ class IMAPClient(object):
         imaplib_logger = IMAPlibLoggerAdapter(
             getLogger('imapclient.imaplib'), dict()
         )
-        self._imap.debug = 5
+        self._imap.debug = IMAPClient.DEBUG  # IMAP4.debug is configurable through IMAPClient.DEBUG
         self._imap._mesg = imaplib_logger.debug
 
     def __enter__(self):
