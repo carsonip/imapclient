@@ -87,6 +87,10 @@ setup(
         Extension(
             'imapclient.response_parser',
             sources=['imapclient/response_parser.pyx'],
-        )
+        ),
+        Extension(
+            'imapclient.imap_utf7',
+            sources=['imapclient/imap_utf7.pyx'],
+        ),
     ],
 )
