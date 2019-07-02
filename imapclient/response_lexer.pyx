@@ -40,6 +40,10 @@ cdef frozenset wordchars = frozenset(chr(b) for b in NON_SPECIALS)
 
 def read_token_stream(bytes src_text):
     cdef long src_len = len(src_text)
+
+    cdef long ptr_start = 0
+    cdef long ptr_end = 0
+
     cdef long ptr = 0
     cdef long ind
     cdef bytearray token
@@ -51,26 +55,28 @@ def read_token_stream(bytes src_text):
             ptr += 1
 
         # Non-whitespace
-        token = bytearray()
+        ptr_start = ptr
+        ptr_end = ptr
+
         while ptr < src_len:
             nextchar = src_text[ptr]
             ptr += 1
 
             if nextchar in wordchars:
-                token.append(nextchar)
+                ptr_end += 1
             elif nextchar == OPEN_SQUARE_CHR:
-                token.append(nextchar)
+                ptr_end += 1
 
                 ind = src_text.find(CLOSE_SQUARE_CHR, ptr)
                 if ind == -1:
                     raise ValueError("No closing '%s'" % CLOSE_SQUARE_CHR)
-                token.extend(src_text[ptr:ind + 1])
+                ptr_end = ind + 1
                 ptr = ind + 1
             else:
                 if nextchar in whitespace:
-                    yield token
+                    yield src_text[ptr_start:ptr_end]
                 elif nextchar == DOUBLE_QUOTE_CHR:
-                    assert_imap_protocol(not token)
+                    token = bytearray()
                     token.append(nextchar)
 
                     while ptr < src_len:
@@ -95,16 +101,17 @@ def read_token_stream(bytes src_text):
                         # No closing quote
                         raise ValueError("No closing '%s'" % DOUBLE_QUOTE_CHR)
 
-                    yield token
+                    yield bytes(token)
+                    del token
                 else:
                     # Other punctuation, eg. "(". This ends the current token.
-                    if token:
-                        yield token
-                    yield bytearray([nextchar])
+                    if ptr_end > ptr_start:
+                        yield src_text[ptr_start:ptr_end]
+                    yield nextchar
                 break
         else:
-            if token:
-                yield token
+            if ptr_end > ptr_start:
+                yield src_text[ptr_start:ptr_end]
 
 
 class TokenSource(object):
@@ -138,7 +145,7 @@ class Lexer(object):
         for source in self.sources:
             self.current_source = source
             for tok in read_token_stream(source.src_text):
-                yield bytes(tok)
+                yield tok
 
 
 # imaplib has poor handling of 'literals' - it both fails to remove the
