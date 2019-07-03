@@ -13,6 +13,16 @@ import binascii
 from six import binary_type, text_type, byte2int, iterbytes, unichr
 
 
+cdef inline void consume_b64_buffer(list buf, bytearray res):
+    """
+    Consume the buffer by encoding it into a modified base 64 representation
+    and surround it with shift characters & and -
+    """
+    if buf:
+        res.extend(b'&' + base64_utf7_encode(buf) + b'-')
+        del buf[:]
+
+
 def encode(s):
     """Encode a folder name using IMAP modified UTF-7 encoding.
 
@@ -22,24 +32,14 @@ def encode(s):
     if not isinstance(s, text_type):
         return s
 
-    res = bytearray()
-
-    b64_buffer = []
-
-    def consume_b64_buffer(buf):
-        """
-        Consume the buffer by encoding it into a modified base 64 representation
-        and surround it with shift characters & and -
-        """
-        if buf:
-            res.extend(b'&' + base64_utf7_encode(buf) + b'-')
-            del buf[:]
+    cdef bytearray res = bytearray()
+    cdef list b64_buffer = []
 
     for c in s:
         # printable ascii case should not be modified
         o = ord(c)
         if 0x20 <= o <= 0x7e:
-            consume_b64_buffer(b64_buffer)
+            consume_b64_buffer(b64_buffer, res)
             # Special case: & is used as shift character so we need to escape it in ASCII
             if o == 0x26:  # & = 0x26
                 res.extend(b'&-')
@@ -52,7 +52,7 @@ def encode(s):
             b64_buffer.append(c)
 
     # Consume the remaining buffer if the string finish with non-ASCII characters
-    consume_b64_buffer(b64_buffer)
+    consume_b64_buffer(b64_buffer, res)
 
     return bytes(res)
 
@@ -100,11 +100,11 @@ def decode(s):
     return ''.join(res)
 
 
-def base64_utf7_encode(buffer):
-    s = ''.join(buffer).encode('utf-16be')
+cdef inline bytes base64_utf7_encode(list buf):
+    s = ''.join(buf).encode('utf-16be')
     return binascii.b2a_base64(s).rstrip(b'\n=').replace(b'/', b',')
 
 
-def base64_utf7_decode(s):
+cdef inline unicode base64_utf7_decode(s):
     s_utf7 = b'+' + s.replace(b',', b'/') + b'-'
     return s_utf7.decode('utf-7')
