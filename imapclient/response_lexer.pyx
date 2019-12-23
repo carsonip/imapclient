@@ -138,7 +138,7 @@ class Lexer(object):
     """
 
     def __init__(self, text):
-        self.sources = (LiteralHandlingIter(self, chunk) for chunk in text)
+        self.sources = (LiteralHandlingIter(chunk) for chunk in text)
         self.current_source = None
 
     def __iter__(self):
@@ -161,8 +161,7 @@ class Lexer(object):
 # literal.
 class LiteralHandlingIter(object):
 
-    def __init__(self, lexer, resp_record):
-        self.lexer = lexer
+    def __init__(self, resp_record):
         if isinstance(resp_record, tuple):
             # A 'record' with a string which includes a literal marker, and
             # the literal itself.
