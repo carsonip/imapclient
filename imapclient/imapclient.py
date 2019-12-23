@@ -222,6 +222,11 @@ class IMAPClient(object):
 
     DEBUG = 5
 
+    __slots__ = ['host', 'port', 'ssl', 'ssl_context', 'stream',
+                 'use_uid', 'folder_encode', 'normalise_times',
+                 '_timeout', '_starttls_done', '_cached_capabilities',
+                 '_idle_tag', '_imap']
+
     def __init__(self, host, port=None, use_uid=True, ssl=True, stream=False,
                  ssl_context=None, timeout=None):
         if stream:
@@ -1742,6 +1747,7 @@ class _dict_bytes_normaliser(object):
     """Wrap a dict with unicode/bytes keys and normalise the keys to
     bytes.
     """
+    __slots__ = ['_d']
 
     def __init__(self, d):
         self._d = d
