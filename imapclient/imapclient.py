@@ -666,7 +666,7 @@ class IMAPClient(object):
 
         return None
 
-    def select_folder(self, folder, readonly=False):
+    def select_folder(self, folder, readonly=False, **kw):
         """Set the current folder on the server.
 
         Future calls to methods such as search and fetch will act on
@@ -684,7 +684,7 @@ class IMAPClient(object):
              b'UIDNEXT': 11,
              b'UIDVALIDITY': 1239278212}
         """
-        self._command_and_check('select', self._normalise_folder(folder), readonly)
+        self._command_and_check('select', self._normalise_folder(folder), readonly, **kw)
         return self._process_select_response(self._imap.untagged_responses)
 
     @require_capability('UNSELECT')
